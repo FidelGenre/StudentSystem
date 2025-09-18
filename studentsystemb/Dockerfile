@@ -1,27 +1,26 @@
-# ===== Build stage (JDK 25 + Maven) =====
-FROM eclipse-temurin:25-jdk AS build
-ENV MAVEN_VERSION=3.9.9
-ENV MAVEN_HOME=/opt/apache-maven-${MAVEN_VERSION}
-ENV PATH=$MAVEN_HOME/bin:$PATH
+# syntax=docker/dockerfile:1
 
-# Instalar Maven manualmente
-RUN apt-get update && apt-get install -y curl tar \
- && curl -fsSL https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
- | tar -xz -C /opt \
- && ln -s ${MAVEN_HOME}/bin/mvn /usr/bin/mvn \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
-
+# ===== Build (JDK 21 + Maven) =====
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /app
+
+# Cache de dependencias
 COPY pom.xml .
-RUN mvn -q -DskipTests dependency:go-offline
-COPY src ./src
-RUN mvn -q -DskipTests clean package
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 
-# ===== Run stage (JDK 25 también) =====
-FROM eclipse-temurin:25-jdk
+# Código fuente
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests clean package
+
+# ===== Run (JRE 21) =====
+FROM eclipse-temurin:21-jre
 WORKDIR /app
+
+# Ajustes de JVM y puerto dinámico de Render
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -Dserver.port=${PORT}"
+
+# Copia el jar generado
 COPY --from=build /app/target/*.jar app.jar
 
-ENV JAVA_OPTS="-Dserver.port=${PORT}"
 EXPOSE 8080
-CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+CMD ["java","-jar","/app/app.jar"]
