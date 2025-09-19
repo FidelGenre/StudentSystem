@@ -1,29 +1,36 @@
 import React, { useEffect, useState } from "react";
 import styles from "./Student.module.css";
 
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:8080"; 
+const PREFIX = ""; 
+
 export default function Student() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const fetchAll = async () => {
-    const res = await fetch("/student/getAll");
+    const res = await fetch(`${API}${PREFIX}/student/getAll`);
     if (!res.ok) throw new Error(`GET /student/getAll -> ${res.status}`);
     return res.json();
   };
 
   const handleClick = async (e) => {
     e.preventDefault();
+    setErrorMsg("");
     const student = { name, address };
+
     try {
       setLoading(true);
-      const res = await fetch("/student/add", {
+      const res = await fetch(`${API}${PREFIX}/student/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(student),
       });
       if (!res.ok) throw new Error(`POST /student/add -> ${res.status}`);
+
       const data = await fetchAll();
       setStudents(data);
       setName("");
@@ -31,14 +38,21 @@ export default function Student() {
       console.log("New Student added");
     } catch (err) {
       console.error(err);
-      alert("No se pudo conectar con el backend. ¿Está corriendo en 8080?");
+      setErrorMsg("No se pudo conectar con el backend.");
+      alert("No se pudo conectar con el backend.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAll().then(setStudents).catch(console.error);
+    console.log("API base:", API);
+    fetchAll()
+      .then(setStudents)
+      .catch((err) => {
+        console.error(err);
+        setErrorMsg("No se pudo obtener la lista de estudiantes.");
+      });
   }, []);
 
   return (
@@ -73,6 +87,8 @@ export default function Student() {
             {loading ? "Enviando..." : "Submit"}
           </button>
         </form>
+
+        {errorMsg && <p className={styles.error}>{errorMsg}</p>}
       </div>
 
       <h2 className={styles.studentList}>Students</h2>
