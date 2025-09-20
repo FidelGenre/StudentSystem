@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface StudentRepository extends MongoRepository<Student, String> {
-    boolean existsByName(String name); // ejemplo de query derivada
+    boolean existsByName(String name);
 }
